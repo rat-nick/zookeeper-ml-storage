@@ -2,6 +2,13 @@ from flask import Flask, request
 from flask_restx import Api, Resource, reqparse
 import werkzeug
 import pickle
+import optparse
+
+parser = optparse.OptionParser()
+parser.add_option('-p', '--port', action='store', help='port to listen on')
+options, args = parser.parse_args()
+print(options.port)
+port = int(options.port)
 
 app = Flask(__name__)
 api = Api(app)
@@ -38,5 +45,12 @@ class Model(Resource):
             #'model' : str(models[id])
         }
 
+ns = api.namespace('cluster-info', description='cluster-info sync')
+
+@ns.route("/")
+class ClusterInfo(Resource):
+    def get(self):
+        return {'cluster-info': 'ok'}
+    
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=port)

@@ -103,6 +103,7 @@ class Server():
             self.storage.set_model(id, model)
             nodes = self.zk.children('/live_nodes')
             for node in nodes:
+                # skip self
                 if node == f'{self.server}:{self.port}':
                     continue
                 # broadcast changes to other nodes
@@ -110,7 +111,7 @@ class Server():
                     'id' : id,
                     'model' : model
                 }
-                headers_dict = {"Update-From-Leader": True}         
+                headers_dict = {"Update-From-Master": True}         
                 requests.put(node, data=data, headers=headers_dict)
         
         # else send request to the leader
@@ -120,7 +121,7 @@ class Server():
                 'model' : model
             }
             master = self.cluster_info.master
-            requests.put(master, data=data)    
+            requests.put(f'http://{master}', data=data)    
     
     def sync_with_master(self):
         if self.am_i_leader():
@@ -130,4 +131,6 @@ class Server():
             master = self.cluster_info.master
             logging.info(f'master is {master}')
             res = requests.get(f'http://{master}/models/all')
-            self.storage.set_models(res.text)
+            logging.info(res.json())
+            
+            self.storage.set_models(res.json())

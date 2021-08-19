@@ -49,10 +49,15 @@ class Model(Resource):
         
     @api.expect(put_parser)
     def put(self, id):
-        if not request.headers.contains('Update-From-Master'):  
-            return
+        
         modelfile = put_parser.parse_args()['modelfile']
         model, _, __, ___ = pickle.load(modelfile)
+        # if master gave the order to put
+        if 'Update-From-Master' in request.headers:  
+            zkServer.storage.set_model(id, model)
+        # if not call zkServer backend to handle update
+        else:
+            zkServer.set_model(model, id)
         
         return{
             "status": 200,

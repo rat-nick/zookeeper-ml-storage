@@ -16,7 +16,7 @@ port = int(options.port)
 server = options.server
 
 # setting up 
-zkServer = Server(server, port)
+
 app = Flask(__name__)
 api = Api(app)
 
@@ -28,8 +28,11 @@ get_parser.add_argument('vars', type=list, action='store_true')
 put_parser = reqparse.RequestParser()
 put_parser.add_argument('modelfile', type=werkzeug.datastructures.FileStorage, location='files')
 
-
-
+@ns.route('/all')
+class AllModels(Resource):
+    def get(self):
+        return zkServer.storage.get_all_models()
+    
 @ns.route('/<int:id>')
 class Model(Resource):        
     @api.expect(get_parser)
@@ -64,7 +67,8 @@ class ClusterInfo(Resource):
     
     
 def main():
-    app.run(debug=True, port=port)
+    app.run(debug=True, port=port, use_reloader=False)
     
 if __name__ == '__main__':
+    zkServer = Server(server, port)
     main()

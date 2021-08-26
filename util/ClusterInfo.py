@@ -17,15 +17,15 @@ class ClusterInfo():
     def get_leader(self):
         """Return leader data"""
         data, stat = self.zk.get('/master')
-        logging.info("Collecting leader data...")
-        logging.info("Version: %s, data: %s" % (stat.version, data.decode("utf-8")))
+        #logging.info("Collecting leader data...")
+        #logging.info("Version: %s, data: %s" % (stat.version, data.decode("utf-8")))
         return data
         
     def elect_leader(self):
         nodes = self.zk.get_children('/election')
         nodes.sort()
         master = self.zk.get(f'/election/{nodes[0]}')[0].decode()
-        logging.info(f'Master should be {master}')
+        #logging.info(f'Master should be {master}')
         try:
             self.zk.set(
                 '/master', 

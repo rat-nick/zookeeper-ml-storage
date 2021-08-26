@@ -1,9 +1,12 @@
 import logging
+import pickle
 from kazoo.client import KazooClient, KazooState
 from kazoo.exceptions import NodeExistsError
 from .ClusterInfo import ClusterInfo
 from .DataStorage import DataStorage
+from .Serializer import serialize, deserialize
 import requests
+import ast
 
 logging.basicConfig(level=logging.INFO)
 
@@ -23,14 +26,14 @@ class Server():
 
         @self.zk.ChildrenWatch('/live_nodes')
         def on_change(nodes):
-            logging.info(f"Changes detected in live nodes...")
-            logging.info(f"Updating cluster-info object on {self.hostname}:{self.port}...")
+            #logging.info(f"Changes detected in live nodes...")
+            #logging.info(f"Updating cluster-info object on {self.hostname}:{self.port}...")
             self.cluster_info.update()
-            logging.info(f'Cluster info:\nLive nodes:{self.cluster_info.live_nodes}\nMaster:{self.cluster_info.master}')
+            logging.info(f'Live nodes:{self.cluster_info.live_nodes}\nMaster:{self.cluster_info.master}')
         
         @self.zk.ChildrenWatch('/election')
         def update_election(nodes):
-            logging.info('Master change...')
+            #logging.info('Master change...')
             self.cluster_info.elect_leader()
             
         @self.zk.DataWatch('/master')
@@ -67,7 +70,7 @@ class Server():
 
     def register_for_election(self):
         val = f'{self.hostname}:{self.port}'
-        logging.info(val)
+        #logging.info(val)
         self.zk.create(
             '/election/node-', 
             value=val.encode(),
@@ -97,31 +100,36 @@ class Server():
         model = self.storage.get_model(id)
         return model
     
-    def set_model(self, model, id):
+    def set_model(self, id, model):
+        #model = deserialize(model)
         # if I am the leader, update data and broadcast to other nodes
         if self.am_i_leader():
+            logging.info("I am master, doing update...")
+            
             self.storage.set_model(id, model)
-            nodes = self.zk.children('/live_nodes')
+            
+            nodes = self.zk.get_children('/live_nodes')
+            
             for node in nodes:
                 # skip self
-                if node == f'{self.server}:{self.port}':
+                if node == f'{self.hostname}:{self.port}':
                     continue
                 # broadcast changes to other nodes
+                logging.info(f"Sending model to other servers: {model[0:20]}...")
                 data = {
                     'id' : id,
                     'model' : model
                 }
-                headers_dict = {"Update-From-Master": True}         
-                requests.put(node, data=data, headers=headers_dict)
+                headers_dict = {"Update-From-Master": b'True'}         
+                requests.put(f'http://{node}/master-command', data=data, headers=headers_dict)
         
         # else send request to the leader
         else:
-            data = {
-                'id' : id,
-                'model' : model
-            }
+            logging.info(f"Sending model {model[0:20]}")
+            data = {'model' : model}
+            
             master = self.cluster_info.master
-            requests.put(f'http://{master}', data=data)    
+            requests.put(f'http://{master}/models/{id}', data=data)     
     
     def sync_with_master(self):
         if self.am_i_leader():
@@ -129,8 +137,8 @@ class Server():
         else:
             self.cluster_info.update()
             master = self.cluster_info.master
-            logging.info(f'master is {master}')
+            #logging.info(f'Getting data from master')
             res = requests.get(f'http://{master}/models/all')
-            logging.info(res.json())
+            #logging.info(res.json())
             
             self.storage.set_models(res.json())

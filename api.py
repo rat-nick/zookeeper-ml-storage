@@ -1,5 +1,5 @@
-import base64
 import logging
+from typing import Text
 from util.Serializer import deserialize, serialize
 from flask import Flask, request, jsonify
 from flask_restx import Api, Resource, reqparse
@@ -29,7 +29,7 @@ zkServer = Server(server, port)
 ns = api.namespace('models', description='model operations')
 
 get_parser = reqparse.RequestParser()
-get_parser.add_argument('vars', type=list, action='store_true')
+get_parser.add_argument('vars', type=str, action='store_true')
 
 put_parser = reqparse.RequestParser()
 put_parser.add_argument('model', type=werkzeug.datastructures.FileStorage, location='files')
@@ -42,25 +42,28 @@ class AllModels(Resource):
         #logging.info(f"all models:{res}")
         return zkServer.storage.get_all_models()
 
-
-
 @ns.route('/<int:id>')
 class Model(Resource):        
     @api.expect(get_parser)
     def get(self,id):
-        
         vars = get_parser.parse_args()['vars']
-        print(vars)
+        #logging.info(f"Input params: {vars}")
+        vars = [float(x) for x in vars.split(',')]
+        #logging.info(f"Input params: {vars}")
+        
         try:
             model = zkServer.get_model(int(id))
             #logging.info(f"GET: model is {model}")
             #deserialize the model
             model = deserialize(model)
-            logging.info(f"Deserialized model is {model[0:20]}")
+            #logging.info(f"Deserialized model is {model[0:20]}")
             model = pickle.loads(model)
+            
+            prediction = model.predict([vars])
+            prediction = prediction.tolist()
             return {
                 'status' : 200,
-                'prediction': str(type(model))
+                'predictions': prediction
             }
         except KeyError as e:
             return {

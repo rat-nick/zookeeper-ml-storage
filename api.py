@@ -80,8 +80,8 @@ class Model(Resource):
         # it is a request from the frontend
         if 'model' in request.files:
             modelfile = request.files['model']
-            model, _, __, ___ = pickle.load(modelfile)
-            model = str(serialize(model), 'utf-8')
+            model = pickle.load(modelfile)
+            model = str(serialize(pickle.dumps(model)), 'utf-8')
             logging.info(f"FRNT serialized model as {model[0:50]}")
             zkServer.set_model(id, model)
             
